@@ -60,10 +60,21 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(centralWidget)
 
     def setupMenuBar(self):
-        openFileAct = QAction("&Open", self)
+        openFileAct = QAction("&Open file..", self)
         openFileAct.setShortcut("Ctrl+O")
         openFileAct.setToolTip("Select an image")
+
+        openDirAct = QAction("&Choose directory..", self)
+        openDirAct.setShortcut("Ctrl+D")
+        openDirAct.setToolTip("Choose a directory instead of a file")
+
+        exitAct = QAction("&Exit", self)
+        exitAct.setShortcut("Ctrl+Q")
+        exitAct.setToolTip("Close the application..")
 
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
         fileMenu.addAction(openFileAct)
+        fileMenu.addAction(openDirAct)
+        fileMenu.addSeparator()
+        fileMenu.addAction(exitAct)
