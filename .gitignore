@@ -1,0 +1,9 @@
+# Local configuration
+.vscode
+
+# Cache
+imageviewer/__pycache__
+imageviewer/view/__pycache__
+
+# Build
+imageviewer.egg-info
