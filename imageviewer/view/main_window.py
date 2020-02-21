@@ -1,18 +1,26 @@
+import os
+
 from PyQt5.QtWidgets import (QMainWindow, QLabel, QPushButton, QVBoxLayout,
                              QHBoxLayout, QFrame, QSizePolicy, QWidget,
-                             QAction)
-from PyQt5.QtGui import QGuiApplication, QPalette
-from PyQt5.QtCore import Qt
+                             QAction, QFileDialog)
+from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap
+from PyQt5.QtCore import Qt, QDir
 
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
         super(MainWindow, self).__init__(parent)
 
+        # Stores all images inside the current image's directory.
+        self.dirImages = []
+
         self.setupMenuBar()
         self.setupUi()
 
     def setupUi(self):
+        """
+        Setup the application UI.
+        """
         self.resize(QGuiApplication.primaryScreen().availableSize() * 2 / 3)
 
         # Create a label to display the images.
@@ -60,9 +68,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(centralWidget)
 
     def setupMenuBar(self):
+        """
+        Setup the application menu bar.
+        """
         openFileAct = QAction("&Open file..", self)
         openFileAct.setShortcut("Ctrl+O")
         openFileAct.setToolTip("Select an image")
+        openFileAct.triggered.connect(self.showFileDialog)
 
         openDirAct = QAction("&Choose directory..", self)
         openDirAct.setShortcut("Ctrl+D")
@@ -78,3 +90,52 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(openDirAct)
         fileMenu.addSeparator()
         fileMenu.addAction(exitAct)
+
+    def showFileDialog(self):
+        """
+        Open a file dialog that only allows the user to choose image files.
+        Only supports .jpg and .png files for now.
+        """
+        filePath = QFileDialog.getOpenFileName(
+            parent=self,
+            caption="Select an image file.",
+            directory="/home/lucas",
+            filter="Image Files (*.jpg *.png)",
+        )[0]
+
+        if not filePath:
+            return
+
+        self.loadImage(filePath)
+
+    def loadImage(self, imagePath: str):
+        """
+        Display image from `imagePath`.
+        """
+
+        # Load pixmap
+        pixmap = QPixmap(imagePath)
+
+        # Scale to the label's size.
+        pixmap = pixmap.scaled(self.imageLabel.size(), Qt.KeepAspectRatio,
+                               Qt.SmoothTransformation)
+
+        # Display image.
+        self.imageLabel.setPixmap(pixmap)
+
+        # Scan image's directory.
+        self.scanDir(imagePath)
+
+    def scanDir(self, path: str):
+        """
+        Scan the image's directory.
+        """
+
+        # Stores all files inside the directory.
+        imageDir = QDir(os.path.dirname(path))
+        imageDir.setFilter(QDir.Files | QDir.NoSymLinks | QDir.Readable)
+
+        # Add files' absolute path to list.
+        self.dirImages = [
+            file.absoluteFilePath() for file in imageDir.entryInfoList()
+        ]
