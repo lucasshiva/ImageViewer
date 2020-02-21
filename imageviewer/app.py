@@ -2,7 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication
 
-from imageviewer import __app_name__, __version__
+from imageviewer import __app_name__
 from imageviewer.view import MainWindow
 
 if __name__ == "__main__":
