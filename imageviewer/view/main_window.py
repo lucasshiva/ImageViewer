@@ -2,9 +2,11 @@ import os
 
 from PyQt5.QtWidgets import (QMainWindow, QLabel, QPushButton, QVBoxLayout,
                              QHBoxLayout, QFrame, QSizePolicy, QWidget,
-                             QAction, QFileDialog)
-from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap
+                             QAction, QFileDialog, QMessageBox)
+from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap, QFont
 from PyQt5.QtCore import Qt, QDir
+
+from imageviewer.core import SUPPORTED_EXTENSIONS
 
 
 class MainWindow(QMainWindow):
@@ -13,6 +15,9 @@ class MainWindow(QMainWindow):
 
         # Stores all images inside the current image's directory.
         self.dirImages = []
+
+        # Store the current image being displayed.
+        self.currentImage = None
 
         self.setupMenuBar()
         self.setupUi()
@@ -23,12 +28,21 @@ class MainWindow(QMainWindow):
         """
         self.resize(QGuiApplication.primaryScreen().availableSize() * 2 / 3)
 
+        # Get the system font size
+        font = QFont()
+        size = font.pointSize()
+
+        # Increase size.
+        font.setPointSize(size + 4)
+
         # Create a label to display the images.
         self.imageLabel = QLabel(
-            "Press Ctrl+O or click on 'File' to select an image!")
+            "Press Ctrl+O to select an image"
+            "\nOr choose a directory by pressing Ctrl+D")
         self.imageLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
         self.imageLabel.setBackgroundRole(QPalette.Base)
         self.imageLabel.setAlignment(Qt.AlignCenter)
+        self.imageLabel.setFont(font)
 
         # Create the index area.
         # Button - Text - Button
@@ -42,6 +56,8 @@ class MainWindow(QMainWindow):
         self.buttonPrevious = QPushButton("Previous")
         self.buttonPrevious.setMinimumSize(100, 40)
         self.buttonPrevious.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonPrevious.setEnabled(False)
+        self.buttonPrevious.clicked.connect(self.previousImage)
 
         self.labelIndex = QLabel()
         self.labelIndex.setAlignment(Qt.AlignCenter)
@@ -49,6 +65,8 @@ class MainWindow(QMainWindow):
         self.buttonNext = QPushButton("Next")
         self.buttonNext.setMinimumSize(100, 40)
         self.buttonNext.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonNext.setEnabled(False)
+        self.buttonNext.clicked.connect(self.nextImage)
 
         frameLayout = QHBoxLayout()
         frameLayout.addWidget(self.buttonPrevious)
@@ -79,10 +97,12 @@ class MainWindow(QMainWindow):
         openDirAct = QAction("&Choose directory..", self)
         openDirAct.setShortcut("Ctrl+D")
         openDirAct.setToolTip("Choose a directory instead of a file")
+        openDirAct.triggered.connect(self.showDirDialog)
 
         exitAct = QAction("&Exit", self)
         exitAct.setShortcut("Ctrl+Q")
         exitAct.setToolTip("Close the application..")
+        exitAct.triggered.connect(self.close)
 
         menuBar = self.menuBar()
         fileMenu = menuBar.addMenu("&File")
@@ -96,17 +116,52 @@ class MainWindow(QMainWindow):
         Open a file dialog that only allows the user to choose image files.
         Only supports .jpg and .png files for now.
         """
+
+        # Transforms the list of extensions in a string
+        # Something like: *.jpg *.png
+        extensions = "*." + " *.".join(SUPPORTED_EXTENSIONS)
+
+        # Open file dialog.
+        # Returns a tuple, first element is the selected path.
+        # Second element is the chosen filter.
+
         filePath = QFileDialog.getOpenFileName(
             parent=self,
             caption="Select an image file.",
-            directory="/home/lucas",
-            filter="Image Files (*.jpg *.png)",
+            directory=os.path.expanduser("~"),
+            filter="Image Files ({})".format(extensions),
         )[0]
 
         if not filePath:
             return
 
         self.loadImage(filePath)
+
+    def showDirDialog(self):
+        """
+        Open a directory dialog.
+        Also show files, but only directories can be selected.
+        """
+        path = QFileDialog.getExistingDirectory(
+            parent=self,
+            caption="Choose a directory",
+            directory=os.path.expanduser("~"),
+            options=QFileDialog.DontUseNativeDialog,
+        )
+
+        if not path:
+            return
+
+        # Scan the directory.
+        self.scanDir(path)
+        
+        # Check if directory is empty.
+        if not self.dirImages:
+            QMessageBox.critical(self, "Error!", "No images were found!")
+            return
+            
+        # Load the first image from the directory.
+        self.loadImage(self.dirImages[0])
 
     def loadImage(self, imagePath: str):
         """
@@ -117,14 +172,23 @@ class MainWindow(QMainWindow):
         pixmap = QPixmap(imagePath)
 
         # Scale to the label's size.
-        pixmap = pixmap.scaled(self.imageLabel.size(), Qt.KeepAspectRatio,
-                               Qt.SmoothTransformation)
+        pixmap = pixmap.scaled(
+            self.imageLabel.size(),
+            Qt.KeepAspectRatio,
+            Qt.SmoothTransformation
+        )
 
         # Display image.
         self.imageLabel.setPixmap(pixmap)
 
-        # Scan image's directory.
-        self.scanDir(imagePath)
+        # Store the current image.
+        self.currentImage = imagePath
+
+        # Scan the current image's directory.
+        self.scanDir(os.path.dirname(self.currentImage))
+
+        # Update the index
+        self.updateIndex()
 
     def scanDir(self, path: str):
         """
@@ -132,10 +196,37 @@ class MainWindow(QMainWindow):
         """
 
         # Stores all files inside the directory.
-        imageDir = QDir(os.path.dirname(path))
+        imageDir = QDir(path)
         imageDir.setFilter(QDir.Files | QDir.NoSymLinks | QDir.Readable)
 
         # Add files' absolute path to list.
         self.dirImages = [
             file.absoluteFilePath() for file in imageDir.entryInfoList()
+            if file.suffix() in SUPPORTED_EXTENSIONS
         ]
+
+    def updateIndex(self):
+        index = self.dirImages.index(self.currentImage)
+        total = len(self.dirImages)
+        fileName = os.path.basename(self.currentImage)
+
+        if index == 0:
+            self.buttonPrevious.setEnabled(False)
+            self.buttonNext.setEnabled(True)
+        elif (index + 1) == total:
+            self.buttonPrevious.setEnabled(True)
+            self.buttonNext.setEnabled(False)
+        else:
+            self.buttonPrevious.setEnabled(True)
+            self.buttonNext.setEnabled(True)
+
+        text = f"{index + 1} of {total} - {fileName}"
+        self.labelIndex.setText(text)
+
+    def nextImage(self):
+        index = self.dirImages.index(self.currentImage)
+        self.loadImage(self.dirImages[index + 1])
+
+    def previousImage(self):
+        index = self.dirImages.index(self.currentImage)
+        self.loadImage(self.dirImages[index - 1])
