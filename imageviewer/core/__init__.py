@@ -1,0 +1,1 @@
+from imageviewer.core.extensions import SUPPORTED_EXTENSIONS
