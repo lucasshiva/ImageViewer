@@ -89,27 +89,57 @@ class MainWindow(QMainWindow):
         """
         Setup the application menu bar.
         """
-        openFileAct = QAction("&Open file..", self)
-        openFileAct.setShortcut("Ctrl+O")
-        openFileAct.setToolTip("Select an image")
-        openFileAct.triggered.connect(self.showFileDialog)
-
-        openDirAct = QAction("&Choose directory..", self)
-        openDirAct.setShortcut("Ctrl+D")
-        openDirAct.setToolTip("Choose a directory instead of a file")
-        openDirAct.triggered.connect(self.showDirDialog)
-
-        exitAct = QAction("&Exit", self)
-        exitAct.setShortcut("Ctrl+Q")
-        exitAct.setToolTip("Close the application..")
-        exitAct.triggered.connect(self.close)
-
+        
+        # Create the menu bar actions.
+        self.createActions()
         menuBar = self.menuBar()
+
         fileMenu = menuBar.addMenu("&File")
-        fileMenu.addAction(openFileAct)
-        fileMenu.addAction(openDirAct)
+        fileMenu.addAction(self.openFileAct)
+        fileMenu.addAction(self.openDirAct)
         fileMenu.addSeparator()
-        fileMenu.addAction(exitAct)
+        fileMenu.addAction(self.exitAct)
+        
+        viewMenu = menuBar.addMenu("&View")
+        viewMenu.addAction(self.zoomInAct)
+        viewMenu.addAction(self.zoomOutAct)
+        viewMenu.addSeparator()
+        viewMenu.addAction(self.normalSizeAct)
+        viewMenu.addAction(self.fitToWindowAct)
+
+    def createActions(self):
+        self.openFileAct = QAction("&Open file..", self, shortcut="Ctrl+O")
+        self.openFileAct.setToolTip("Select an image")
+        self.openFileAct.triggered.connect(self.showFileDialog)
+
+        self.openDirAct = QAction("&Choose directory..", self, shortcut="Ctrl+D")
+        self.openDirAct.setToolTip("Choose a directory instead of a file")
+        self.openDirAct.triggered.connect(self.showDirDialog)
+
+        self.exitAct = QAction("&Exit", self, shortcut="Ctrl+Q")
+        self.exitAct.setToolTip("Close the application..")
+        self.exitAct.triggered.connect(self.close)
+        
+        #TODO View actions are disabled for now. 
+        # Implement the functionalities later.
+        self.zoomInAct = QAction("&Zoom In", self, shortcut="Ctrl++")
+        self.zoomInAct.setToolTip("Zoom in")
+        
+        self.zoomOutAct = QAction("&Zoom Out", self, shortcut="Ctrl+-")
+        self.zoomOutAct.setToolTip("Zoom out")
+        
+        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S")
+        self.normalSizeAct.setToolTip("Reset zoom level")
+        self.normalSizeAct.setEnabled(False)
+        
+        self.fitToWindowAct = QAction("&Fit Window", self, shortcut="Ctrl+F")
+        self.fitToWindowAct.setToolTip("Resize image to fit the current window")
+        
+        # Disable actions
+        self.zoomInAct.setEnabled(False)
+        self.zoomOutAct.setEnabled(False)
+        self.normalSizeAct.setEnabled(False)
+        self.fitToWindowAct.setEnabled(False)
 
     def showFileDialog(self):
         """
