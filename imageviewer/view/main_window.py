@@ -7,6 +7,7 @@ from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap, QFont
 from PyQt5.QtCore import Qt, QDir
 
 from imageviewer.core import SUPPORTED_EXTENSIONS
+from imageviewer.view.widgets import ImageView, IndexButton, IndexBox
 
 
 class MainWindow(QMainWindow):
@@ -28,43 +29,37 @@ class MainWindow(QMainWindow):
         """
         self.resize(QGuiApplication.primaryScreen().availableSize() * 2 / 3)
 
+        # Instanciate the image viewer.
+        self.imageView = ImageView()
+
         # Get the system font size
         font = QFont()
         size = font.pointSize()
 
         # Increase size.
-        font.setPointSize(size + 4)
+        font.setPointSize(size + 2)
 
         # Create a label to display the images.
-        self.imageLabel = QLabel(
+        self.introLabel = QLabel(
             "Press Ctrl+O to select an image"
             "\nOr choose a directory by pressing Ctrl+D")
-        self.imageLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.imageLabel.setBackgroundRole(QPalette.Base)
-        self.imageLabel.setAlignment(Qt.AlignCenter)
-        self.imageLabel.setFont(font)
+        self.introLabel.setAlignment(Qt.AlignCenter)
+        self.introLabel.setFont(font)
 
         # Create the index area.
         # Button - Text - Button
 
         # A frame to draw a line around the layout.
-        frame = QFrame()
-        frame.setFrameShadow(QFrame.Raised)
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.indexBox = IndexBox()
 
-        self.buttonPrevious = QPushButton("Previous")
-        self.buttonPrevious.setMinimumSize(100, 40)
-        self.buttonPrevious.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonPrevious = IndexButton("Previous")
         self.buttonPrevious.setEnabled(False)
         self.buttonPrevious.clicked.connect(self.previousImage)
 
         self.labelIndex = QLabel()
         self.labelIndex.setAlignment(Qt.AlignCenter)
 
-        self.buttonNext = QPushButton("Next")
-        self.buttonNext.setMinimumSize(100, 40)
-        self.buttonNext.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonNext = IndexButton("Next")
         self.buttonNext.setEnabled(False)
         self.buttonNext.clicked.connect(self.nextImage)
 
@@ -73,16 +68,17 @@ class MainWindow(QMainWindow):
         frameLayout.addWidget(self.labelIndex)
         frameLayout.addWidget(self.buttonNext)
 
-        frame.setLayout(frameLayout)
+        self.indexBox.setLayout(frameLayout)
 
         # Create and add widgets to the main layout.
-        mainLayout = QVBoxLayout()
-        mainLayout.addWidget(self.imageLabel)
-        mainLayout.addWidget(frame)
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.addWidget(self.introLabel)
+        self.mainLayout.addWidget(self.indexBox)
 
         # Create central widget.
         centralWidget = QWidget()
-        centralWidget.setLayout(mainLayout)
+        centralWidget.setLayout(self.mainLayout)
         self.setCentralWidget(centralWidget)
 
     def setupMenuBar(self):
@@ -108,6 +104,11 @@ class MainWindow(QMainWindow):
         viewMenu.addAction(self.fitToWindowAct)
 
     def createActions(self):
+        """
+        Create the actions for the application menu bar.
+        """
+        
+        """ File menu actions. """
         self.openFileAct = QAction("&Open file..", self, shortcut="Ctrl+O")
         self.openFileAct.setToolTip("Select an image")
         self.openFileAct.triggered.connect(self.showFileDialog)
@@ -120,8 +121,8 @@ class MainWindow(QMainWindow):
         self.exitAct.setToolTip("Close the application..")
         self.exitAct.triggered.connect(self.close)
         
-        #TODO View actions are disabled for now. 
-        # Implement the functionalities later.
+
+        """ View menu actions. """
         self.zoomInAct = QAction("&Zoom In", self, shortcut="Ctrl++")
         self.zoomInAct.setToolTip("Zoom in")
         
@@ -132,10 +133,11 @@ class MainWindow(QMainWindow):
         self.normalSizeAct.setToolTip("Reset zoom level")
         self.normalSizeAct.setEnabled(False)
         
-        self.fitToWindowAct = QAction("&Fit Window", self, shortcut="Ctrl+F")
+        self.fitToWindowAct = QAction("&Fit Window", self, shortcut="Ctrl+F",
+                                      checkable=True, triggered=self.fitImage)
         self.fitToWindowAct.setToolTip("Resize image to fit the current window")
         
-        # Disable actions
+        # Disable actions by default.
         self.zoomInAct.setEnabled(False)
         self.zoomOutAct.setEnabled(False)
         self.normalSizeAct.setEnabled(False)
@@ -197,19 +199,18 @@ class MainWindow(QMainWindow):
         """
         Display image from `imagePath`.
         """
+        
+        # Replace the intro text with the image.
+        if self.currentImage is None:
+            self.mainLayout.replaceWidget(self.introLabel, self.imageView)
+        
+        self.fitToWindowAct.setEnabled(True)
 
-        # Load pixmap
-        pixmap = QPixmap(imagePath)
-
-        # Scale to the label's size.
-        pixmap = pixmap.scaled(
-            self.imageLabel.size(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
-
-        # Display image.
-        self.imageLabel.setPixmap(pixmap)
+        # Load image. Converts to QPixmap automatically.
+        self.imageView.setImage(imagePath)
+        
+        # Check fit status
+        self.fitImage()
 
         # Store the current image.
         self.currentImage = imagePath
@@ -260,3 +261,20 @@ class MainWindow(QMainWindow):
     def previousImage(self):
         index = self.dirImages.index(self.currentImage)
         self.loadImage(self.dirImages[index - 1])
+
+    def fitImage(self):
+        fit = self.fitToWindowAct.isChecked()
+        if fit:
+            self.imageView.fitToWindow()
+        else:
+            self.imageView.showNormal()
+    
+    def resizeEvent(self, event):
+        if self.currentImage is None:
+            event.accept()
+            
+        fit = self.fitToWindowAct.isChecked()
+        if fit:
+            self.imageView.fitToWindow()
+        else:
+            self.imageView.showNormal()
