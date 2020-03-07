@@ -24,7 +24,7 @@ You can do this in two ways:
 poetry install
 
 # Using pip
-pip install -r requirements.txt -e
+pip install -r requirements.txt -e .
 ```
 
 - Note: Make sure your pip is updated. Run `pip install --upgrade pip`.
