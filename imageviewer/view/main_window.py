@@ -1,9 +1,9 @@
 import os
 
-from PyQt5.QtWidgets import (QMainWindow, QLabel, QPushButton, QVBoxLayout,
-                             QHBoxLayout, QFrame, QSizePolicy, QWidget,
-                             QAction, QFileDialog, QMessageBox)
-from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap, QFont
+from PyQt5.QtWidgets import (QMainWindow, QLabel, QVBoxLayout,
+                             QHBoxLayout, QWidget, QAction, QFileDialog,
+                             QMessageBox)
+from PyQt5.QtGui import QGuiApplication, QFont
 from PyQt5.QtCore import Qt, QDir
 
 from imageviewer.core import SUPPORTED_EXTENSIONS
@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
         # Create and add widgets to the main layout.
         self.mainLayout = QVBoxLayout()
         self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setSpacing(0)
         self.mainLayout.addWidget(self.introLabel)
         self.mainLayout.addWidget(self.indexBox)
 
@@ -85,7 +86,7 @@ class MainWindow(QMainWindow):
         """
         Setup the application menu bar.
         """
-        
+
         # Create the menu bar actions.
         self.createActions()
         menuBar = self.menuBar()
@@ -95,19 +96,20 @@ class MainWindow(QMainWindow):
         fileMenu.addAction(self.openDirAct)
         fileMenu.addSeparator()
         fileMenu.addAction(self.exitAct)
-        
+
         viewMenu = menuBar.addMenu("&View")
         viewMenu.addAction(self.zoomInAct)
         viewMenu.addAction(self.zoomOutAct)
         viewMenu.addSeparator()
         viewMenu.addAction(self.normalSizeAct)
         viewMenu.addAction(self.fitToWindowAct)
+        viewMenu.addAction(self.fullscreenAct)
 
     def createActions(self):
         """
         Create the actions for the application menu bar.
         """
-        
+
         """ File menu actions. """
         self.openFileAct = QAction("&Open file..", self, shortcut="Ctrl+O")
         self.openFileAct.setToolTip("Select an image")
@@ -120,23 +122,25 @@ class MainWindow(QMainWindow):
         self.exitAct = QAction("&Exit", self, shortcut="Ctrl+Q")
         self.exitAct.setToolTip("Close the application..")
         self.exitAct.triggered.connect(self.close)
-        
 
         """ View menu actions. """
         self.zoomInAct = QAction("&Zoom In", self, shortcut="Ctrl++")
         self.zoomInAct.setToolTip("Zoom in")
-        
+
         self.zoomOutAct = QAction("&Zoom Out", self, shortcut="Ctrl+-")
         self.zoomOutAct.setToolTip("Zoom out")
-        
+
         self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S")
         self.normalSizeAct.setToolTip("Reset zoom level")
         self.normalSizeAct.setEnabled(False)
-        
+
         self.fitToWindowAct = QAction("&Fit Window", self, shortcut="Ctrl+F",
                                       checkable=True, triggered=self.fitImage)
         self.fitToWindowAct.setToolTip("Resize image to fit the current window")
-        
+
+        self.fullscreenAct = QAction("&Fullscreen Mode", self, shortcut="F11",
+                                     checkable=True, triggered=self.fullscreen)
+
         # Disable actions by default.
         self.zoomInAct.setEnabled(False)
         self.zoomOutAct.setEnabled(False)
@@ -186,12 +190,12 @@ class MainWindow(QMainWindow):
 
         # Scan the directory.
         self.scanDir(path)
-        
+
         # Check if directory is empty.
         if not self.dirImages:
             QMessageBox.critical(self, "Error!", "No images were found!")
             return
-            
+
         # Load the first image from the directory.
         self.loadImage(self.dirImages[0])
 
@@ -199,18 +203,24 @@ class MainWindow(QMainWindow):
         """
         Display image from `imagePath`.
         """
-        
-        # Replace the intro text with the image.
-        if self.currentImage is None:
-            self.mainLayout.replaceWidget(self.introLabel, self.imageView)
-        
-        self.fitToWindowAct.setEnabled(True)
 
         # Load image. Converts to QPixmap automatically.
         self.imageView.setImage(imagePath)
-        
+
         # Check fit status
         self.fitImage()
+
+        # This will run only when the first image is loaded.
+        if self.currentImage is None:
+            # Replace the intro text with the image.
+            self.mainLayout.replaceWidget(self.introLabel, self.imageView)
+
+            # Enable buttons. They will be hidden/shown later.
+            self.buttonPrevious.setEnabled(True)
+            self.buttonNext.setEnabled(True)
+
+        # Enable action.
+        self.fitToWindowAct.setEnabled(True)
 
         # Store the current image.
         self.currentImage = imagePath
@@ -242,14 +252,14 @@ class MainWindow(QMainWindow):
         fileName = os.path.basename(self.currentImage)
 
         if index == 0:
-            self.buttonPrevious.setEnabled(False)
-            self.buttonNext.setEnabled(True)
+            self.buttonPrevious.setHidden(True)
+            self.buttonNext.setHidden(False)
         elif (index + 1) == total:
-            self.buttonPrevious.setEnabled(True)
-            self.buttonNext.setEnabled(False)
+            self.buttonPrevious.setHidden(False)
+            self.buttonNext.setHidden(True)
         else:
-            self.buttonPrevious.setEnabled(True)
-            self.buttonNext.setEnabled(True)
+            self.buttonPrevious.setHidden(False)
+            self.buttonNext.setHidden(False)
 
         text = f"{index + 1} of {total} - {fileName}"
         self.labelIndex.setText(text)
@@ -268,11 +278,17 @@ class MainWindow(QMainWindow):
             self.imageView.fitToWindow()
         else:
             self.imageView.showNormal()
-    
+
+    def fullscreen(self):
+        if not self.isFullScreen():
+            self.showFullScreen()
+        else:
+            self.showNormal()
+
     def resizeEvent(self, event):
         if self.currentImage is None:
             event.accept()
-            
+
         fit = self.fitToWindowAct.isChecked()
         if fit:
             self.imageView.fitToWindow()
