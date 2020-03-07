@@ -4,6 +4,7 @@
 # Cache
 imageviewer/__pycache__
 imageviewer/view/__pycache__
+imageviewer/view/widgets/__pycache__
 imageviewer/core/__pycache__
 
 # Build

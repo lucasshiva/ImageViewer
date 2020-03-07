@@ -1,12 +1,13 @@
 import os
 
-from PyQt5.QtWidgets import (QMainWindow, QLabel, QPushButton, QVBoxLayout,
-                             QHBoxLayout, QFrame, QSizePolicy, QWidget,
-                             QAction, QFileDialog, QMessageBox)
-from PyQt5.QtGui import QGuiApplication, QPalette, QPixmap, QFont
+from PyQt5.QtWidgets import (QMainWindow, QLabel, QVBoxLayout,
+                             QHBoxLayout, QWidget, QAction, QFileDialog,
+                             QMessageBox)
+from PyQt5.QtGui import QGuiApplication, QFont
 from PyQt5.QtCore import Qt, QDir
 
 from imageviewer.core import SUPPORTED_EXTENSIONS
+from imageviewer.view.widgets import ImageView, IndexButton, IndexBox
 
 
 class MainWindow(QMainWindow):
@@ -28,43 +29,37 @@ class MainWindow(QMainWindow):
         """
         self.resize(QGuiApplication.primaryScreen().availableSize() * 2 / 3)
 
+        # Instanciate the image viewer.
+        self.imageView = ImageView()
+
         # Get the system font size
         font = QFont()
         size = font.pointSize()
 
         # Increase size.
-        font.setPointSize(size + 4)
+        font.setPointSize(size + 2)
 
         # Create a label to display the images.
-        self.imageLabel = QLabel(
+        self.introLabel = QLabel(
             "Press Ctrl+O to select an image"
             "\nOr choose a directory by pressing Ctrl+D")
-        self.imageLabel.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Ignored)
-        self.imageLabel.setBackgroundRole(QPalette.Base)
-        self.imageLabel.setAlignment(Qt.AlignCenter)
-        self.imageLabel.setFont(font)
+        self.introLabel.setAlignment(Qt.AlignCenter)
+        self.introLabel.setFont(font)
 
         # Create the index area.
         # Button - Text - Button
 
         # A frame to draw a line around the layout.
-        frame = QFrame()
-        frame.setFrameShadow(QFrame.Raised)
-        frame.setFrameShape(QFrame.StyledPanel)
-        frame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
+        self.indexBox = IndexBox()
 
-        self.buttonPrevious = QPushButton("Previous")
-        self.buttonPrevious.setMinimumSize(100, 40)
-        self.buttonPrevious.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonPrevious = IndexButton("Previous")
         self.buttonPrevious.setEnabled(False)
         self.buttonPrevious.clicked.connect(self.previousImage)
 
         self.labelIndex = QLabel()
         self.labelIndex.setAlignment(Qt.AlignCenter)
 
-        self.buttonNext = QPushButton("Next")
-        self.buttonNext.setMinimumSize(100, 40)
-        self.buttonNext.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.buttonNext = IndexButton("Next")
         self.buttonNext.setEnabled(False)
         self.buttonNext.clicked.connect(self.nextImage)
 
@@ -73,43 +68,84 @@ class MainWindow(QMainWindow):
         frameLayout.addWidget(self.labelIndex)
         frameLayout.addWidget(self.buttonNext)
 
-        frame.setLayout(frameLayout)
+        self.indexBox.setLayout(frameLayout)
 
         # Create and add widgets to the main layout.
-        mainLayout = QVBoxLayout()
-        mainLayout.addWidget(self.imageLabel)
-        mainLayout.addWidget(frame)
+        self.mainLayout = QVBoxLayout()
+        self.mainLayout.setContentsMargins(0, 0, 0, 0)
+        self.mainLayout.setSpacing(0)
+        self.mainLayout.addWidget(self.introLabel)
+        self.mainLayout.addWidget(self.indexBox)
 
         # Create central widget.
         centralWidget = QWidget()
-        centralWidget.setLayout(mainLayout)
+        centralWidget.setLayout(self.mainLayout)
         self.setCentralWidget(centralWidget)
 
     def setupMenuBar(self):
         """
         Setup the application menu bar.
         """
-        openFileAct = QAction("&Open file..", self)
-        openFileAct.setShortcut("Ctrl+O")
-        openFileAct.setToolTip("Select an image")
-        openFileAct.triggered.connect(self.showFileDialog)
 
-        openDirAct = QAction("&Choose directory..", self)
-        openDirAct.setShortcut("Ctrl+D")
-        openDirAct.setToolTip("Choose a directory instead of a file")
-        openDirAct.triggered.connect(self.showDirDialog)
-
-        exitAct = QAction("&Exit", self)
-        exitAct.setShortcut("Ctrl+Q")
-        exitAct.setToolTip("Close the application..")
-        exitAct.triggered.connect(self.close)
-
+        # Create the menu bar actions.
+        self.createActions()
         menuBar = self.menuBar()
+
         fileMenu = menuBar.addMenu("&File")
-        fileMenu.addAction(openFileAct)
-        fileMenu.addAction(openDirAct)
+        fileMenu.addAction(self.openFileAct)
+        fileMenu.addAction(self.openDirAct)
         fileMenu.addSeparator()
-        fileMenu.addAction(exitAct)
+        fileMenu.addAction(self.exitAct)
+
+        viewMenu = menuBar.addMenu("&View")
+        viewMenu.addAction(self.zoomInAct)
+        viewMenu.addAction(self.zoomOutAct)
+        viewMenu.addSeparator()
+        viewMenu.addAction(self.normalSizeAct)
+        viewMenu.addAction(self.fitToWindowAct)
+        viewMenu.addAction(self.fullscreenAct)
+
+    def createActions(self):
+        """
+        Create the actions for the application menu bar.
+        """
+
+        """ File menu actions. """
+        self.openFileAct = QAction("&Open file..", self, shortcut="Ctrl+O")
+        self.openFileAct.setToolTip("Select an image")
+        self.openFileAct.triggered.connect(self.showFileDialog)
+
+        self.openDirAct = QAction("&Choose directory..", self, shortcut="Ctrl+D")
+        self.openDirAct.setToolTip("Choose a directory instead of a file")
+        self.openDirAct.triggered.connect(self.showDirDialog)
+
+        self.exitAct = QAction("&Exit", self, shortcut="Ctrl+Q")
+        self.exitAct.setToolTip("Close the application..")
+        self.exitAct.triggered.connect(self.close)
+
+        """ View menu actions. """
+        self.zoomInAct = QAction("&Zoom In", self, shortcut="Ctrl++")
+        self.zoomInAct.setToolTip("Zoom in")
+
+        self.zoomOutAct = QAction("&Zoom Out", self, shortcut="Ctrl+-")
+        self.zoomOutAct.setToolTip("Zoom out")
+
+        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S")
+        self.normalSizeAct.setToolTip("Reset zoom level")
+        self.normalSizeAct.setEnabled(False)
+
+        self.fitToWindowAct = QAction("&Fit Window", self, shortcut="Ctrl+F",
+                                      checkable=True, triggered=self.fitImage)
+        self.fitToWindowAct.setToolTip("Resize image to fit the current window")
+
+        self.fullscreenAct = QAction("&Fullscreen Mode", self, shortcut="F11",
+                                     checkable=True, triggered=self.fullscreen)
+
+        # Disable actions by default.
+        self.zoomInAct.setEnabled(False)
+        self.zoomOutAct.setEnabled(False)
+        self.normalSizeAct.setEnabled(False)
+        self.fitToWindowAct.setEnabled(False)
 
     def showFileDialog(self):
         """
@@ -154,12 +190,12 @@ class MainWindow(QMainWindow):
 
         # Scan the directory.
         self.scanDir(path)
-        
+
         # Check if directory is empty.
         if not self.dirImages:
             QMessageBox.critical(self, "Error!", "No images were found!")
             return
-            
+
         # Load the first image from the directory.
         self.loadImage(self.dirImages[0])
 
@@ -168,18 +204,23 @@ class MainWindow(QMainWindow):
         Display image from `imagePath`.
         """
 
-        # Load pixmap
-        pixmap = QPixmap(imagePath)
+        # Load image. Converts to QPixmap automatically.
+        self.imageView.setImage(imagePath)
 
-        # Scale to the label's size.
-        pixmap = pixmap.scaled(
-            self.imageLabel.size(),
-            Qt.KeepAspectRatio,
-            Qt.SmoothTransformation
-        )
+        # Check fit status
+        self.fitImage()
 
-        # Display image.
-        self.imageLabel.setPixmap(pixmap)
+        # This will run only when the first image is loaded.
+        if self.currentImage is None:
+            # Replace the intro text with the image.
+            self.mainLayout.replaceWidget(self.introLabel, self.imageView)
+
+            # Enable buttons. They will be hidden/shown later.
+            self.buttonPrevious.setEnabled(True)
+            self.buttonNext.setEnabled(True)
+
+        # Enable action.
+        self.fitToWindowAct.setEnabled(True)
 
         # Store the current image.
         self.currentImage = imagePath
@@ -211,14 +252,14 @@ class MainWindow(QMainWindow):
         fileName = os.path.basename(self.currentImage)
 
         if index == 0:
-            self.buttonPrevious.setEnabled(False)
-            self.buttonNext.setEnabled(True)
+            self.buttonPrevious.setHidden(True)
+            self.buttonNext.setHidden(False)
         elif (index + 1) == total:
-            self.buttonPrevious.setEnabled(True)
-            self.buttonNext.setEnabled(False)
+            self.buttonPrevious.setHidden(False)
+            self.buttonNext.setHidden(True)
         else:
-            self.buttonPrevious.setEnabled(True)
-            self.buttonNext.setEnabled(True)
+            self.buttonPrevious.setHidden(False)
+            self.buttonNext.setHidden(False)
 
         text = f"{index + 1} of {total} - {fileName}"
         self.labelIndex.setText(text)
@@ -230,3 +271,26 @@ class MainWindow(QMainWindow):
     def previousImage(self):
         index = self.dirImages.index(self.currentImage)
         self.loadImage(self.dirImages[index - 1])
+
+    def fitImage(self):
+        fit = self.fitToWindowAct.isChecked()
+        if fit:
+            self.imageView.fitToWindow()
+        else:
+            self.imageView.showNormal()
+
+    def fullscreen(self):
+        if not self.isFullScreen():
+            self.showFullScreen()
+        else:
+            self.showNormal()
+
+    def resizeEvent(self, event):
+        if self.currentImage is None:
+            event.accept()
+
+        fit = self.fitToWindowAct.isChecked()
+        if fit:
+            self.imageView.fitToWindow()
+        else:
+            self.imageView.showNormal()
